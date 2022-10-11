@@ -1,0 +1,132 @@
+var ss = SpreadsheetApp.getActiveSpreadsheet();
+// variables of sheet1
+var source1 = ss.getSheetByName('ATLAS IRs');
+var range1 = source1.getDataRange();
+var status = source1.getRange("H2:H").getValues();
+var age = source1.getRange("K2:K").getValues();
+var resource = source1.getRange("L2:L").getValues();
+var incident = source1.getRange("D2:D").getValues();
+var incident_desc = source1.getRange("E2:E").getValues();
+var country = source1.getRange("B2:B").getValues();
+var rep_by = source1.getRange("G2:G").getValues();
+var ir_type1 = source1.getRange("C2:C").getValues();
+var jira = source1.getRange("M2:M").getValues();
+
+// variables of sheet2
+var source2 = ss.getSheetByName('Issue Areas');
+var range2 = source2.getDataRange();
+var firstName = source2.getRange("C1:C").getValues();
+var emailIDs = source2.getRange("D1:D").getValues();
+
+
+function getLastRowSpecial(range){
+  var rowNum = 0;
+  var blank = false;
+  for(var row = 0; row < range.length; row++){ 
+    if(range[row][0] === "" && !blank){
+      rowNum = row;
+      blank = true;
+    }else if(range[row][0] !== ""){
+      blank = false;
+    };
+  };
+  return rowNum;
+};
+
+
+function inProgress(){
+  var c = getLastRowSpecial(resource);
+  var result = [];
+
+  var subject = 'The following IRs are in Progress.'
+
+  for(i=0; i<=c; i++){
+  var a = age[i].toString().trim();
+  var stat = status[i].toString().trim();
+  var ir_type = ir_type1[i].toString().trim(); 
+
+  if((stat !== 'Confirmed')&&(ir_type === 'Grid Project')){
+      result.push(
+      {name: resource[i].toString(), country : country[i].toString().trim(), IRType : ir_type1[i].toString().trim(), IR : incident[i].toString(), IR_Desc: incident_desc[i].toString(), age : age[i].toString().trim(),rep_by : rep_by[i].toString().trim(), JIRAID: jira[i].toString().trim(), status: "In Progress"}
+    );
+    }
+
+    else if((stat !== 'Confirmed') && (ir_type !== 'Grid Project')&& (a === '1' || a === '2' || a === '3' )){
+    
+    result.push(
+      {name: resource[i].toString(), country : country[i].toString().trim(), IRType : ir_type1[i].toString().trim(), IR : incident[i].toString(), IR_Desc: incident_desc[i].toString(), age : age[i].toString().trim(), rep_by : rep_by[i].toString().trim(), JIRAID: jira[i].toString().trim(), status: "In-Progress"}
+    );
+    }
+    else if((stat !== 'Confirmed') && (ir_type !== 'Grid Project') && (a === '4' )){
+    
+    result.push(
+      {name: resource[i].toString(), country : country[i].toString().trim(), IRType : ir_type1[i].toString().trim(),  IR : incident[i].toString(), IR_Desc: incident_desc[i].toString(), age : age[i].toString().trim(), rep_by : rep_by[i].toString().trim(), JIRAID: jira[i].toString().trim(), status: "Will Escalate Tomorrow"}
+    );
+    }
+    else if((stat !== 'Confirmed' && ir_type !== 'Grid Project') && (Number(age[i]) >= 5.0)){
+    result.push(
+      {name: resource[i].toString(), country : country[i].toString().trim(), IRType : ir_type1[i].toString().trim(), IR : incident[i].toString(), IR_Desc: incident_desc[i].toString(), age : age[i].toString().trim(),rep_by : rep_by[i].toString().trim(), JIRAID: jira[i].toString().trim(), status: "Already Escalated"}
+    );
+    }
+
+
+  }
+
+    grouped = result.reduce(function (r, a) {
+        key = a.name || 'others';
+        r[key] = r[key] || [];
+        r[key].push(a);        
+        return r;        
+    }, Object.create(null));
+    emailSender(grouped);
+}
+
+
+function emailSender(grouped){
+var subject = 'Atlas IR Summary for the Day'
+
+Object.keys(grouped).forEach((key) => {
+
+for(i=0; i<grouped[key].length; i++){
+  res_set = []
+
+  developer = grouped[key][i].name
+  var d = getLastRowSpecial(firstName);
+  for(j=0;j<d; j++){
+    if(developer === firstName[j].toString().trim())
+      email_id = emailIDs[j].toString().trim()
+  }
+
+  for (j=i; i<grouped[key].length; i++){
+    res_set.push([grouped[key][i].country],[grouped[key][i].IRType],[grouped[key][i].IR], [grouped[key][i].IR_Desc],[grouped[key][i].rep_by],[grouped[key][i].age],[grouped[key][i].JIRAID],[grouped[key][i].status])
+  }
+
+  var tableFormat = 'style="border:3px solid black;border-collapse:collapse;text-align:left;" border = 3 cellpadding = 5';
+  var html = "<h3>" + "Summary" + "</h3>";
+  html = html + ['<table '+tableFormat+'>'];
+  html = html + "<TR><TD>Country</TD><TD>IR Type</TD><TD>IR Number</TD><TD>IR Description</TD><TD>Reported By</TD><TD>Age</TD><TD>JIRA ID</TD><TD>Status</TD></TR>";
+
+  for(var x=0; x < (res_set.length/8); x++){
+    html = html + "<TR>";  
+    for(var y=(x*8); y < ((8*x)+8); y++){
+      html = html +"<TD>";
+      html = html + (res_set[y]);
+      html = html + "</TD>";
+    }    
+      html = html + "</TR>";   
+  }
+  html = html + "</TR>"; 
+  html = html + "</table>";
+
+  MailApp.sendEmail(email_id, subject, "Requires HTML", {htmlBody:html});
+
+}
+  });
+}
+
+function main() {
+  inProgress();
+}
+
+
+
